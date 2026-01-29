@@ -53,7 +53,7 @@ make windows
 ### Control Keys
 
 - **Ctrl+C**: Break a running program and return to the `READY.` prompt.
-- **EXIT**: Type `EXIT` in immediate mode to quit the interpreter.
+- **EXIT**: Type `EXIT` in interactive mode to quit the interpreter.
 
 ## BASIC Commands
 
