@@ -44,7 +44,7 @@ make windows
 ./basic
 ```
 
-### Run a 
+### Run a Program/Script
 
 ```bash
 ./basic program.bas
