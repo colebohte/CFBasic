@@ -4,9 +4,9 @@ A Microsoft BASIC interpreter written in C for modern systems (Linux, macOS, Win
 
 ## Features
 
-- **C128 BASIC 7.0 Dialect**: Supports structured programming with `DO...LOOP`, `WHILE...WEND`, `REPEAT...UNTIL`, and `IF...THEN...ELSE`.
+- **C128 BASIC 7.0 Esque Dialect**: Supports structured programming with `DO...LOOP`, `WHILE...WEND`, `REPEAT...UNTIL`, and `IF...THEN...ELSE`.
 - **Case-Insensitive Syntax**: Commands and variables are not case-sensitive.
-- **Kernal-style Screen Editor**:
+- **CBM Kernal-style Screen Editor**:
   - Full-screen cursor movement via arrow keys.
   - **Logical Line Picking**: Move the cursor to any line of text and press **ENTER** to execute it immediately.
   - Integrated virtual screen buffer for classic terminal interaction.
