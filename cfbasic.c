@@ -17,7 +17,7 @@ void handle_sigint(int sig) {
   }
 }
 
-#define VERSION "1.0"
+#define VERSION "1.0.1"
 
 void print_banner(Interpreter *interp) {
   char mem_buf[256];
@@ -76,6 +76,24 @@ void print_usage(void) {
   printf("  -v, --version       Show version information\n");
 }
 
+void print_help(Interpreter *interp) {
+  const char *help_text =
+      "AVAILABLE COMMANDS:\n"
+      " LIST, RUN, NEW, LOAD, SAVE, EXIT, HELP\n"
+      " PRINT, INPUT, LET, GOTO, GOSUB, RETURN\n"
+      " IF...THEN...ELSE, FOR...NEXT, DO...LOOP\n"
+      " WHILE...WEND, REPEAT...UNTIL, REM, POKE\n"
+      " GRAPHICS: PLOT, DRAW\n"
+      " FUNCTIONS: PEEK, ABS, INT, RND, SIN, COS, TAN, SQR\n"
+      "            LEN, LEFT$, RIGHT$, MID$, STR$, VAL, CHR$, ASC\n";
+  if (interp->editor) {
+    editor_print(interp->editor, help_text);
+  } else {
+    printf("%s", help_text);
+    fflush(stdout);
+  }
+}
+
 bool is_immediate_command(const char *line) {
   /* Check if line starts with a number */
   while (*line == ' ' || *line == '\t')
@@ -102,6 +120,22 @@ int extract_line_number(const char *line, char **rest) {
   }
 
   return line_num;
+}
+
+void print_memory_stats(Interpreter *interp) {
+  char mem_buf[256];
+  format_memory_size(mem_buf, get_free_memory(), total_memory_limit);
+  // Convert memory string to uppercase
+  for (int i = 0; mem_buf[i]; i++) {
+    mem_buf[i] = toupper((unsigned char)mem_buf[i]);
+  }
+  if (interp->editor) {
+    editor_print(interp->editor, mem_buf);
+    editor_print(interp->editor, "\n");
+  } else {
+    printf("%s\n", mem_buf);
+    fflush(stdout);
+  }
 }
 
 void execute_immediate_command(Interpreter *interp, const char *line) {
@@ -154,7 +188,8 @@ void execute_immediate_command(Interpreter *interp, const char *line) {
     if (token.type == TOK_STRING) {
       interpreter_load(interp, token.text);
     } else {
-      error("FILENAME REQUIRED");
+      interp->error_occurred = true;
+      interp->error_message = str_duplicate("FILENAME REQUIRED");
     }
     token_free(&token);
     break;
@@ -167,7 +202,8 @@ void execute_immediate_command(Interpreter *interp, const char *line) {
     if (token.type == TOK_STRING) {
       interpreter_save(interp, token.text);
     } else {
-      error("FILENAME REQUIRED");
+      interp->error_occurred = true;
+      interp->error_message = str_duplicate("FILENAME REQUIRED");
     }
     token_free(&token);
     break;
@@ -175,6 +211,25 @@ void execute_immediate_command(Interpreter *interp, const char *line) {
 
   case TOK_EXIT:
     interp->exit_requested = true;
+    token_free(&token);
+    break;
+
+  case TOK_HELP:
+    print_help(interp);
+    token_free(&token);
+    break;
+
+  case TOK_MEMCHK:
+    print_memory_stats(interp);
+    token_free(&token);
+    break;
+
+  case TOK_CLR:
+    if (interp->editor) {
+      editor_clear(interp->editor);
+    } else {
+      clear_screen();
+    }
     token_free(&token);
     break;
 
@@ -204,35 +259,45 @@ void repl(Interpreter *interp) {
     char *line = editor_read_line(&ed);
     if (!line) {
       if (interp->break_requested) {
-        editor_print(&ed, "\n? BREAK\nREADY.\n");
+        editor_print(&ed, "?BREAK\nREADY.\n");
         interp->break_requested = false;
         continue;
       }
       break;
     }
 
-    /* Skip empty lines */
-    if (strlen(line) == 0) {
-      free(line);
-      continue;
-    }
+    if (strlen(line) > 0) {
+      char *rest;
+      int line_num = extract_line_number(line, &rest);
 
-    /* Check if it's a numbered line (program line) */
-    char *rest;
-    int line_num = extract_line_number(line, &rest);
+      if (line_num >= 0) {
+        /* Add or delete program line */
+        program_add_line(interp, line_num, rest);
+      } else {
+        /* Execute immediate command */
+        execute_immediate_command(interp, line);
 
-    if (line_num >= 0) {
-      /* Add or delete program line */
-      program_add_line(interp, line_num, rest);
-    } else {
-      /* Execute immediate command */
-      execute_immediate_command(interp, line);
-      if (!interp->exit_requested) {
-        editor_print(&ed, "\nREADY.\n");
+        if (interp->error_occurred) {
+          char err_buf[256];
+          if (interp->error_message) {
+            snprintf(err_buf, sizeof(err_buf), "?%s ERROR\n",
+                     interp->error_message);
+            editor_print(&ed, err_buf);
+            safe_free(interp->error_message);
+            interp->error_message = NULL;
+          } else {
+            editor_print(&ed, "?ERROR\n");
+          }
+          interp->error_occurred = false;
+        }
+
+        if (!interp->exit_requested) {
+          editor_print(&ed, "READY.\n");
+        }
       }
     }
 
-    free(line);
+    safe_free(line);
     if (interp->exit_requested)
       break;
   }
@@ -245,7 +310,7 @@ void repl(Interpreter *interp) {
 }
 
 int main(int argc, char *argv[]) {
-  size_t memory_limit = 1073741824; /* 1GB default */
+  size_t memory_limit = 65536; /* 64KB default */
   const char *filename = NULL;
 
   /* Parse command line arguments */

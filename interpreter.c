@@ -3,6 +3,7 @@
 #include "editor.h"
 #include "lexer.h"
 #include "utils.h"
+#include <ctype.h>
 #include <math.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -24,6 +25,14 @@ static void basic_print(Interpreter *interp, const char *format, ...) {
     free(buf);
   }
   va_end(args);
+}
+
+static void interpreter_error(Interpreter *interp, const char *msg) {
+  interp->error_occurred = true;
+  if (interp->error_message) {
+    safe_free(interp->error_message);
+  }
+  interp->error_message = str_duplicate(msg);
 }
 
 void interpreter_init(Interpreter *interp) {
@@ -219,8 +228,8 @@ void stack_push(Interpreter *interp, int return_line) {
 
 int stack_pop(Interpreter *interp) {
   if (!interp->call_stack) {
-    error("RETURN WITHOUT GOSUB");
-    return -1;
+    interpreter_error(interp, "RETURN WITHOUT GOSUB");
+    return 0; // Return a dummy value, as error will stop execution
   }
 
   StackFrame *frame = interp->call_stack;
@@ -293,7 +302,7 @@ void interpreter_new(Interpreter *interp) {
 bool interpreter_load(Interpreter *interp, const char *filename) {
   FILE *file = fopen(filename, "r");
   if (!file) {
-    error("FILE NOT FOUND");
+    interpreter_error(interp, "FILE NOT FOUND");
     return false;
   }
 
@@ -322,7 +331,7 @@ bool interpreter_load(Interpreter *interp, const char *filename) {
 bool interpreter_save(Interpreter *interp, const char *filename) {
   FILE *file = fopen(filename, "w");
   if (!file) {
-    error("CANNOT SAVE FILE");
+    interpreter_error(interp, "CANNOT SAVE FILE");
     return false;
   }
 
@@ -351,21 +360,27 @@ void interpreter_run(Interpreter *interp) {
       interp->running = false;
       break;
     }
-    ProgramLine *next_line = interp->current_line->next;
-    interpreter_execute_line(interp, interp->current_line->text);
+
+    ProgramLine *executing_line = interp->current_line;
+    interpreter_execute_line(interp, executing_line->text);
 
     if (interp->error_occurred) {
-      basic_print(interp, "ERROR IN LINE %d\n",
-                  interp->current_line->line_number);
+      if (interp->error_message) {
+        basic_print(interp, "?%s ERROR IN %d\n", interp->error_message,
+                    executing_line->line_number);
+        safe_free(interp->error_message);
+        interp->error_message = NULL;
+      } else {
+        basic_print(interp, "?ERROR IN %d\n", executing_line->line_number);
+      }
       interp->running = false;
       interp->error_occurred = false;
       break;
     }
 
-    /* Check if execution changed the current line (GOTO, GOSUB) */
-    if (interp->running && interp->current_line &&
-        interp->current_line->next == next_line) {
-      interp->current_line = next_line;
+    /* Advance if execution didn't change current_line */
+    if (interp->running && interp->current_line == executing_line) {
+      interp->current_line = executing_line->next;
     }
   }
 
@@ -581,20 +596,40 @@ void interpreter_execute_line(Interpreter *interp, const char *line) {
           if (v.string) {
             for (char *p = v.string; *p; p++) {
               unsigned char c = (unsigned char)*p;
-              if (c == 147) { // CLR/HOME
-                basic_print(interp, "\033[2J\033[H");
-              } else if (c == 19) { // HOME
-                basic_print(interp, "\033[H");
-              } else if (c == 17) { // CSR DOWN
-                basic_print(interp, "\033[B");
-              } else if (c == 145) { // CSR UP
-                basic_print(interp, "\033[A");
-              } else if (c == 157) { // CSR LEFT
-                basic_print(interp, "\033[D");
-              } else if (c == 29) { // CSR RIGHT
-                basic_print(interp, "\033[C");
+              if (interp->editor) {
+                if (c == 147) { // CLR/HOME
+                  editor_clear(interp->editor);
+                } else if (c == 19) { // HOME
+                  editor_move_cursor(interp->editor, 0, 0);
+                } else if (c == 17) { // CSR DOWN
+                  editor_move_cursor_relative(interp->editor, 1, 0);
+                } else if (c == 145) { // CSR UP
+                  editor_move_cursor_relative(interp->editor, -1, 0);
+                } else if (c == 157) { // CSR LEFT
+                  editor_move_cursor_relative(interp->editor, 0, -1);
+                } else if (c == 29) { // CSR RIGHT
+                  editor_move_cursor_relative(interp->editor, 0, 1);
+                } else {
+                  char buf[2] = {(char)c, 0};
+                  editor_print(interp->editor, buf);
+                }
               } else {
-                basic_print(interp, "%c", c);
+                if (c == 147) { // CLR/HOME
+                  printf("\x1b[2J\x1b[H");
+                } else if (c == 19) { // HOME
+                  printf("\x1b[H");
+                } else if (c == 17) { // CSR DOWN
+                  printf("\x1b[B");
+                } else if (c == 145) { // CSR UP
+                  printf("\x1b[A");
+                } else if (c == 157) { // CSR LEFT
+                  printf("\x1b[D");
+                } else if (c == 29) { // CSR RIGHT
+                  printf("\x1b[C");
+                } else {
+                  putchar(c);
+                }
+                fflush(stdout);
               }
             }
           }
@@ -668,12 +703,46 @@ void interpreter_execute_line(Interpreter *interp, const char *line) {
         if (target) {
           interp->current_line = target;
         } else {
-          error("LINE NOT FOUND");
-          interp->error_occurred = true;
+          interpreter_error(interp, "LINE NOT FOUND");
         }
       }
       if (v.is_string)
         safe_free(v.string);
+    } else if (token.type == TOK_GOSUB) {
+      token_free(&token);
+      Value v = evaluate_expression(interp, &lexer);
+      if (!v.is_string) {
+        ProgramLine *target = program_find_line(interp, (int)v.number);
+        if (target) {
+          if (interp->current_line) {
+            stack_push(interp, interp->current_line->line_number);
+          }
+          interp->current_line = target;
+        } else {
+          interpreter_error(interp, "LINE NOT FOUND");
+        }
+      }
+      if (v.is_string)
+        safe_free(v.string);
+    } else if (token.type == TOK_RETURN) {
+      token_free(&token);
+      int return_line = stack_pop(interp);
+      if (!interp->error_occurred) {
+        ProgramLine *target = program_find_line(interp, return_line);
+        if (target) {
+          interp->current_line = target->next;
+        } else {
+          // If the line was deleted, find the next one
+          // This is a bit complex, but standard BASIC behavior is usually
+          // to error or jump to next available.
+          // For now, let's just find the first line > return_line.
+          ProgramLine *curr = interp->program;
+          while (curr && curr->line_number <= return_line) {
+            curr = curr->next;
+          }
+          interp->current_line = curr;
+        }
+      }
     } else if (token.type == TOK_LET || token.type == TOK_IDENTIFIER) {
       char *name = NULL;
       if (token.type == TOK_IDENTIFIER) {
@@ -697,6 +766,8 @@ void interpreter_execute_line(Interpreter *interp, const char *line) {
           } else {
             var_set_number(interp, name, v.number);
           }
+        } else {
+          interpreter_error(interp, "SYNTAX");
         }
         token_free(&eq);
         safe_free(name);
@@ -767,12 +838,32 @@ void interpreter_execute_line(Interpreter *interp, const char *line) {
     } else if (token.type == TOK_COLON) {
       token_free(&token);
       continue;
+    } else if (token.type == TOK_CLR) {
+      if (interp->editor) {
+        editor_clear(interp->editor);
+      } else {
+        clear_screen();
+      }
+      token_free(&token);
+    } else if (token.type == TOK_MEMCHK) {
+      char mem_buf[256];
+      format_memory_size(mem_buf, get_free_memory(), total_memory_limit);
+      for (int i = 0; mem_buf[i]; i++) {
+        mem_buf[i] = toupper((unsigned char)mem_buf[i]);
+      }
+      basic_print(interp, "%s\n", mem_buf);
+      token_free(&token);
     } else if (token.type == TOK_REM) {
       token_free(&token);
       break;
     } else {
+      interpreter_error(interp, "SYNTAX");
       token_free(&token);
+      break;
     }
+
+    if (interp->error_occurred)
+      break;
   }
 
   lexer_free(&lexer);

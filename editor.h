@@ -28,4 +28,9 @@ void editor_plot(Editor *ed, int x, int y, char c);
 void editor_set_background_color(Editor *ed, int color);
 void editor_poke_char(Editor *ed, int addr, uint8_t val);
 
+// New: Platform-agnostic terminal controls
+void editor_clear(Editor *ed);
+void editor_move_cursor(Editor *ed, int row, int col);
+void editor_move_cursor_relative(Editor *ed, int drow, int dcol);
+
 #endif /* EDITOR_H */

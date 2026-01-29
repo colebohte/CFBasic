@@ -34,13 +34,6 @@ all: $(TARGET)
 $(TARGET): $(OBJECTS)
 	$(CC) $(OBJECTS) -o $(TARGET) $(LDFLAGS)
 	@echo "Built $(TARGET) for $(PLATFORM)"
-	@echo ""
-	@echo "Run Instructions"
-	@echo "Windows (Powershell): './basic.exe'"
-	@echo "Windows (CMD): 'basic.exe'"
-	@echo "Linux/macOS: './basic'" 
-	@echo "Linux/macOS (Installed): 'basic'"
-	@echo ""
 
 # Compile object files
 %.o: %.c
@@ -49,7 +42,6 @@ $(TARGET): $(OBJECTS)
 # Clean build artifacts
 clean:
 	rm -f $(OBJECTS) $(TARGET) basic.exe
-	@echo "Cleaned all build artifacts."
 
 # Install (Linux/macOS only)
 install: $(TARGET)
@@ -66,21 +58,14 @@ test: $(TARGET)
 
 # Windows build (using MinGW)
 windows:
-	x86_64-w64-mingw32-gcc $(CFLAGS) $(SOURCES) -o cfbasic.exe
-
-# Basic?
-what:
-	@echo "**** COMMODORE 64 BASIC V2 ****"
-	@echo "64K RAM SYSTEM  38911 BASIC BYTES FREE"
-	@echo "READY."
-	
+	x86_64-w64-mingw32-gcc $(CFLAGS) $(SOURCES) -o basic.exe
 
 # Help
 help:
 	@echo "CFBASIC Makefile"
 	@echo ""
 	@echo "Targets:"
-	@echo "  all       - Build cfbasic (default)"
+	@echo "  all       - Build basic (default)"
 	@echo "  clean     - Remove build artifacts"
 	@echo "  install   - Install to /usr/local/bin (requires sudo)"
 	@echo "  uninstall - Remove from /usr/local/bin"

@@ -11,25 +11,26 @@ typedef struct {
 } KeywordMapping;
 
 static KeywordMapping keywords[] = {
-    {"LIST", TOK_LIST},       {"RUN", TOK_RUN},      {"NEW", TOK_NEW},
-    {"LOAD", TOK_LOAD},       {"SAVE", TOK_SAVE},    {"EXIT", TOK_EXIT},
-    {"PRINT", TOK_PRINT},     {"INPUT", TOK_INPUT},  {"LET", TOK_LET},
-    {"GOTO", TOK_GOTO},       {"GOSUB", TOK_GOSUB},  {"RETURN", TOK_RETURN},
-    {"IF", TOK_IF},           {"THEN", TOK_THEN},    {"ELSE", TOK_ELSE},
-    {"FOR", TOK_FOR},         {"TO", TOK_TO},        {"STEP", TOK_STEP},
-    {"NEXT", TOK_NEXT},       {"DO", TOK_DO},        {"LOOP", TOK_LOOP},
-    {"WHILE", TOK_WHILE},     {"WEND", TOK_WEND},    {"REPEAT", TOK_REPEAT},
-    {"UNTIL", TOK_UNTIL},     {"REM", TOK_REM},      {"END", TOK_END},
-    {"STOP", TOK_STOP},       {"DIM", TOK_DIM},      {"TRAP", TOK_TRAP},
-    {"RESUME", TOK_RESUME},   {"DATA", TOK_DATA},    {"READ", TOK_READ},
-    {"RESTORE", TOK_RESTORE}, {"POKE", TOK_POKE},    {"PLOT", TOK_PLOT},
-    {"DRAW", TOK_DRAW},       {"AND", TOK_AND},      {"OR", TOK_OR},
-    {"NOT", TOK_NOT},         {"ABS", TOK_ABS},      {"INT", TOK_INT},
-    {"RND", TOK_RND},         {"SIN", TOK_SIN},      {"COS", TOK_COS},
-    {"TAN", TOK_TAN},         {"SQR", TOK_SQR},      {"LEN", TOK_LEN},
-    {"LEFT$", TOK_LEFT},      {"RIGHT$", TOK_RIGHT}, {"MID$", TOK_MID},
-    {"STR$", TOK_STR},        {"VAL", TOK_VAL},      {"CHR$", TOK_CHR},
-    {"PEEK", TOK_PEEK},       {"ASC", TOK_ASC},      {NULL, TOK_ERROR}};
+    {"LIST", TOK_LIST},       {"RUN", TOK_RUN},       {"NEW", TOK_NEW},
+    {"LOAD", TOK_LOAD},       {"SAVE", TOK_SAVE},     {"EXIT", TOK_EXIT},
+    {"HELP", TOK_HELP},       {"MEMCHK", TOK_MEMCHK}, {"CLR", TOK_CLR},
+    {"PRINT", TOK_PRINT},     {"INPUT", TOK_INPUT},   {"LET", TOK_LET},
+    {"GOTO", TOK_GOTO},       {"GOSUB", TOK_GOSUB},   {"RETURN", TOK_RETURN},
+    {"IF", TOK_IF},           {"THEN", TOK_THEN},     {"ELSE", TOK_ELSE},
+    {"FOR", TOK_FOR},         {"TO", TOK_TO},         {"STEP", TOK_STEP},
+    {"NEXT", TOK_NEXT},       {"DO", TOK_DO},         {"LOOP", TOK_LOOP},
+    {"WHILE", TOK_WHILE},     {"WEND", TOK_WEND},     {"REPEAT", TOK_REPEAT},
+    {"UNTIL", TOK_UNTIL},     {"REM", TOK_REM},       {"END", TOK_END},
+    {"STOP", TOK_STOP},       {"DIM", TOK_DIM},       {"TRAP", TOK_TRAP},
+    {"RESUME", TOK_RESUME},   {"DATA", TOK_DATA},     {"READ", TOK_READ},
+    {"RESTORE", TOK_RESTORE}, {"POKE", TOK_POKE},     {"PLOT", TOK_PLOT},
+    {"DRAW", TOK_DRAW},       {"AND", TOK_AND},       {"OR", TOK_OR},
+    {"NOT", TOK_NOT},         {"ABS", TOK_ABS},       {"INT", TOK_INT},
+    {"RND", TOK_RND},         {"SIN", TOK_SIN},       {"COS", TOK_COS},
+    {"TAN", TOK_TAN},         {"SQR", TOK_SQR},       {"LEN", TOK_LEN},
+    {"LEFT$", TOK_LEFT},      {"RIGHT$", TOK_RIGHT},  {"MID$", TOK_MID},
+    {"STR$", TOK_STR},        {"VAL", TOK_VAL},       {"CHR$", TOK_CHR},
+    {"PEEK", TOK_PEEK},       {"ASC", TOK_ASC},       {NULL, TOK_ERROR}};
 
 void lexer_init(Lexer *lexer, const char *input) {
   lexer->input = input;

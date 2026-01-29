@@ -14,36 +14,51 @@ void init_memory(size_t limit) {
 }
 
 void *safe_malloc(size_t size) {
-  if (memory_used + size > total_memory_limit) {
+  size_t total_size = size + sizeof(size_t);
+  if (memory_used + total_size > total_memory_limit) {
     error("OUT OF MEMORY");
     return NULL;
   }
-  void *ptr = malloc(size);
+  void *ptr = malloc(total_size);
   if (!ptr) {
     error("SYSTEM OUT OF MEMORY");
     exit(1);
   }
-  memory_used += size;
-  return ptr;
+  *(size_t *)ptr = size;
+  memory_used += total_size;
+  return (char *)ptr + sizeof(size_t);
 }
 
 void *safe_realloc(void *ptr, size_t old_size, size_t new_size) {
-  if (memory_used - old_size + new_size > total_memory_limit) {
+  if (!ptr)
+    return safe_malloc(new_size);
+
+  void *real_ptr = (char *)ptr - sizeof(size_t);
+  size_t total_new_size = new_size + sizeof(size_t);
+  size_t total_old_size = old_size + sizeof(size_t);
+
+  if (memory_used - total_old_size + total_new_size > total_memory_limit) {
     error("OUT OF MEMORY");
     return NULL;
   }
-  void *new_ptr = realloc(ptr, new_size);
+
+  void *new_ptr = realloc(real_ptr, total_new_size);
   if (!new_ptr) {
     error("SYSTEM OUT OF MEMORY");
     exit(1);
   }
-  memory_used = memory_used - old_size + new_size;
-  return new_ptr;
+
+  *(size_t *)new_ptr = new_size;
+  memory_used = memory_used - total_old_size + total_new_size;
+  return (char *)new_ptr + sizeof(size_t);
 }
 
 void safe_free(void *ptr) {
   if (ptr) {
-    free(ptr);
+    void *real_ptr = (char *)ptr - sizeof(size_t);
+    size_t size = *(size_t *)real_ptr;
+    memory_used -= (size + sizeof(size_t));
+    free(real_ptr);
   }
 }
 
@@ -119,20 +134,32 @@ char *read_line(const char *prompt) {
     fflush(stdout);
   }
 
-  char *line = NULL;
-  size_t len = 0;
-  ssize_t read = getline(&line, &len, stdin);
+  size_t capacity = 128;
+  size_t size = 0;
+  char *line = safe_malloc(capacity);
+  if (!line)
+    return NULL;
 
-  if (read == -1) {
-    free(line);
+  int c;
+  while ((c = fgetc(stdin)) != EOF && c != '\n') {
+    if (size + 1 >= capacity) {
+      capacity *= 2;
+      char *new_line = safe_realloc(line, capacity / 2, capacity);
+      if (!new_line) {
+        safe_free(line);
+        return NULL;
+      }
+      line = new_line;
+    }
+    line[size++] = (char)c;
+  }
+
+  if (c == EOF && size == 0) {
+    safe_free(line);
     return NULL;
   }
 
-  /* Remove trailing newline */
-  if (read > 0 && line[read - 1] == '\n') {
-    line[read - 1] = '\0';
-  }
-
+  line[size] = '\0';
   return line;
 }
 
@@ -166,21 +193,29 @@ size_t parse_memory_size(const char *str) {
 
 void format_memory_size(char *buf, size_t size, size_t limit) {
   const char *units[] = {"B", "KB", "MB", "GB"};
-  double size_float = (double)size;
+  double used_float = (double)memory_used;
+  double free_float = (double)size;
   double limit_float = (double)limit;
-  int size_unit = 0;
-  int limit_unit = 0;
 
-  while (size_float >= 1024 && size_unit < 3) {
-    size_float /= 1024;
-    size_unit++;
+  int used_unit = 0;
+  while (used_float >= 1024 && used_unit < 3) {
+    used_float /= 1024;
+    used_unit++;
   }
 
+  int free_unit = 0;
+  while (free_float >= 1024 && free_unit < 3) {
+    free_float /= 1024;
+    free_unit++;
+  }
+
+  int limit_unit = 0;
   while (limit_float >= 1024 && limit_unit < 3) {
     limit_float /= 1024;
     limit_unit++;
   }
 
-  sprintf(buf, "%.2f %s Free, %.0f %s Allocated", size_float, units[size_unit],
-          limit_float, units[limit_unit]);
+  sprintf(buf, "%.2f %s FREE, %.2f %s USED, %.0f %s ALLOCATED", free_float,
+          units[free_unit], used_float, units[used_unit], limit_float,
+          units[limit_unit]);
 }

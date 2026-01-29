@@ -15,6 +15,9 @@ typedef enum {
   TOK_LOAD,
   TOK_SAVE,
   TOK_EXIT,
+  TOK_HELP,
+  TOK_MEMCHK,
+  TOK_CLR,
 
   /* Keywords - Program statements */
   TOK_PRINT,
