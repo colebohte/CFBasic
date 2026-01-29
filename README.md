@@ -1,4 +1,4 @@
-# CFBASIC - Compact Factor BASIC- Modern Microsoft BASIC Interpreter
+# CFBASIC - Compact Factor BASIC
 
 A Microsoft BASIC interpreter written in C for modern systems (Linux, macOS, Windows). Features a full-screen Commodore Kernal-style editor, C64 virtual RAM emulation, and hardware-mapped PEEK/POKE.
 
